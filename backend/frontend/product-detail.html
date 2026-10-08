@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Product | Annapurna Bhakti Bhandar</title>
+<meta name="description" content="Product details - Annapurna Bhakti Bhandar">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="navbar-mount"></div>
+
+<div class="page-header">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <a href="products.html" id="crumbCat">Shop</a> / <span id="crumbName">Product</span></div>
+  </div>
+</div>
+
+<div class="container" style="padding:36px 20px 60px;">
+  <div id="pdContent"><div class="spinner"></div></div>
+</div>
+
+<section class="section" style="background:var(--cream-soft)">
+  <div class="container">
+    <div class="section-header">
+      <div class="eyebrow">You May Also Like</div>
+      <h2>Related Products</h2>
+    </div>
+    <div class="product-grid" id="relatedGrid"></div>
+  </div>
+</section>
+
+<div id="footer-mount"></div>
+
+<script src="js/api.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/layout.js"></script>
+<script>
+const productId = new URLSearchParams(window.location.search).get("id");
+const CATEGORY_LABELS = {
+  "girls-collection": "Girls Collection",
+  "certified-rudraksha": "Certified Rudraksha",
+  "rashi-ratna-bracelets": "Rashi Ratna Bracelets",
+};
+let currentProduct = null;
+
+function specRows(p) {
+  const rows = [];
+  if (p.mukhi) rows.push(["Mukhi", p.mukhi]);
+  if (p.certification) rows.push(["Certification", p.certification]);
+  if (p.rashi) rows.push(["Rashi", p.rashi]);
+  if (p.gemstone) rows.push(["Gemstone", p.gemstone]);
+  if (p.material) rows.push(["Material", p.material]);
+  if (p.color) rows.push(["Color", p.color]);
+  if (p.size) rows.push(["Size", p.size]);
+  rows.push(["Availability", p.stock_quantity > 0 ? `In Stock (${p.stock_quantity} left)` : "Out of Stock"]);
+  return rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+}
+
+function benefitNotice(p) {
+  if (p.product_type === "rudraksha") {
+    return `<div class="notice-box">🕉️ Traditionally associated with spiritual wellbeing in Vedic tradition. This is not a medical claim and Rudraksha does not cure or guarantee any health outcome.</div>`;
+  }
+  if (p.product_type === "rashi") {
+    return `<div class="notice-box">✨ This gemstone is traditionally associated with the ${p.rashi} Rashi in Vedic astrology. Astrological benefits are a matter of belief and tradition, not scientific guarantee.</div>`;
+  }
+  return "";
+}
+
+async function loadProduct() {
+  const el = document.getElementById("pdContent");
+  try {
+    const p = await api.getProduct(productId);
+    currentProduct = p;
+    document.title = `${p.name} | Annapurna Bhakti Bhandar`;
+    const catSlug = { girls: "girls-collection", rudraksha: "certified-rudraksha", rashi: "rashi-ratna-bracelets" }[p.product_type] || "";
+    document.getElementById("crumbCat").textContent = CATEGORY_LABELS[catSlug] || "Shop";
+    document.getElementById("crumbCat").href = `products.html?category=${catSlug}`;
+    document.getElementById("crumbName").textContent = p.name;
+
+    const price = p.discount_price ? p.discount_price : p.price;
+    const outOfStock = p.stock_quantity <= 0;
+
+    el.innerHTML = `
+    <div class="pd-wrap">
+      <div class="pd-image">${imgWithFallback(p.image_url, p.name)}</div>
+      <div class="pd-info">
+        <h1>${p.name}</h1>
+        <div class="price-row" style="font-size:1.1rem;">
+          <span class="price-now" style="font-size:1.6rem;">${money(price)}</span>
+          ${p.discount_price ? `<span class="price-old">${money(p.price)}</span><span class="discount-tag">${Math.round((1 - p.discount_price/p.price)*100)}% OFF</span>` : ""}
+        </div>
+        <p style="color:var(--brown-soft)">${p.description}</p>
+        <table class="spec-table">${specRows(p)}</table>
+        ${benefitNotice(p)}
+        <div style="margin-top:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div class="qty-selector">
+            <button onclick="changeQty(-1)">−</button>
+            <input type="number" id="qtyInput" value="1" min="1" max="${p.stock_quantity}">
+            <button onclick="changeQty(1)">+</button>
+          </div>
+          <button class="btn btn-primary" ${outOfStock ? "disabled" : ""} onclick="addCurrentToCart()">Add to Cart</button>
+          <button class="btn btn-gold" ${outOfStock ? "disabled" : ""} onclick="buyNow()">Buy Now</button>
+        </div>
+        <div class="notice-box" style="margin-top:20px;">🚚 Home Delivery Available — Cash on Delivery</div>
+      </div>
+    </div>`;
+    loadRelated(catSlug, p.id);
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state"><h3>Product not found</h3><p>${e.message}</p><a href="products.html" class="btn btn-primary">Back to Shop</a></div>`;
+  }
+}
+
+function changeQty(delta) {
+  const input = document.getElementById("qtyInput");
+  let val = parseInt(input.value || "1") + delta;
+  val = Math.max(1, Math.min(val, currentProduct.stock_quantity));
+  input.value = val;
+}
+
+function addCurrentToCart() {
+  const qty = parseInt(document.getElementById("qtyInput").value || "1");
+  addToCart(currentProduct, qty);
+}
+
+function buyNow() {
+  const qty = parseInt(document.getElementById("qtyInput").value || "1");
+  addToCart(currentProduct, qty);
+  window.location.href = "cart.html";
+}
+
+async function loadRelated(catSlug, excludeId) {
+  const grid = document.getElementById("relatedGrid");
+  try {
+    const data = await api.getProducts({ category: catSlug, page_size: 5 });
+    const items = data.items.filter(p => p.id != excludeId).slice(0, 4);
+    grid.innerHTML = items.map(p => {
+      const price = p.discount_price ? p.discount_price : p.price;
+      return `<div class="product-card">
+        <div class="product-image-wrap"><a href="product-detail.html?id=${p.id}">${imgWithFallback(p.image_url, p.name)}</a></div>
+        <div class="product-body">
+          <h4><a href="product-detail.html?id=${p.id}">${p.name}</a></h4>
+          <div class="price-row"><span class="price-now">${money(price)}</span></div>
+          <div class="product-actions"><a href="product-detail.html?id=${p.id}" class="btn btn-outline-maroon btn-sm">View Details</a></div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) { grid.innerHTML = ""; }
+}
+
+loadProduct();
+mountLayout("");
+</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">Shop | Annapurna Bhakti Bhandar</title>
+<meta name="description" content="Browse women's accessories, certified Rudraksha and Rashi Ratna bracelets at Annapurna Bhakti Bhandar.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="navbar-mount"></div>
+
+<div class="page-header">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / <span id="crumbLabel">Shop</span></div>
+    <h1 id="pageHeading">All Products</h1>
+  </div>
+</div>
+
+<div class="container" style="padding-top:30px;">
+  <div class="toolbar">
+    <div class="filter-group">
+      <select id="filterCategory">
+        <option value="">All Categories</option>
+        <option value="girls-collection">Girls Collection</option>
+        <option value="certified-rudraksha">Certified Rudraksha</option>
+        <option value="rashi-ratna-bracelets">Rashi Ratna Bracelets</option>
+      </select>
+      <select id="filterRashi" style="display:none;">
+        <option value="">All Rashis</option>
+      </select>
+      <select id="filterMukhi" style="display:none;">
+        <option value="">All Mukhi Types</option>
+      </select>
+      <select id="filterPrice">
+        <option value="">Any Price</option>
+        <option value="0-500">Under ₹500</option>
+        <option value="500-1000">₹500 - ₹1000</option>
+        <option value="1000-99999">Above ₹1000</option>
+      </select>
+      <label style="font-size:0.85rem;display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="filterInStock"> In stock only
+      </label>
+    </div>
+    <div class="filter-group">
+      <select id="sortBy">
+        <option value="">Newest</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="name_asc">Name: A-Z</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="resultsInfo" style="margin-bottom:16px;color:var(--brown-soft);font-size:0.9rem;"></div>
+  <div class="product-grid" id="productGrid"><div class="spinner"></div></div>
+  <div id="pagination" style="display:flex;justify-content:center;gap:8px;margin:36px 0;"></div>
+</div>
+
+<div id="footer-mount"></div>
+
+<script src="js/api.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/layout.js"></script>
+<script>
+const RASHI_LIST = ["Mesh","Vrishabh","Mithun","Kark","Singh","Kanya","Tula","Vrishchik","Dhanu","Makar","Kumbh","Meen"];
+const MUKHI_LIST = Array.from({length:12}, (_, i) => `${i+1} Mukhi`);
+
+const params = new URLSearchParams(window.location.search);
+let state = {
+  category: params.get("category") || "",
+  search: params.get("search") || "",
+  rashi: "",
+  mukhi: "",
+  min_price: undefined,
+  max_price: undefined,
+  in_stock_only: false,
+  sort: "",
+  page: 1,
+};
+
+const CATEGORY_LABELS = {
+  "girls-collection": "Girls Collection",
+  "certified-rudraksha": "Certified Rudraksha",
+  "rashi-ratna-bracelets": "Rashi Ratna Bracelets",
+};
+
+function productCard(p) {
+  const price = p.discount_price ? p.discount_price : p.price;
+  const outOfStock = p.stock_quantity <= 0;
+  return `
+  <div class="product-card">
+    <div class="product-image-wrap">
+      ${p.discount_price ? `<span class="badge">SALE</span>` : ""}
+      ${outOfStock ? `<span class="badge badge-outofstock" style="left:auto;right:10px;">OUT OF STOCK</span>` : ""}
+      <a href="product-detail.html?id=${p.id}">${imgWithFallback(p.image_url, p.name)}</a>
+    </div>
+    <div class="product-body">
+      <h4><a href="product-detail.html?id=${p.id}">${p.name}</a></h4>
+      <div class="product-meta">${p.mukhi ? p.mukhi + " Rudraksha" : ""}${p.rashi ? p.rashi + " Rashi" : ""}</div>
+      <div class="price-row">
+        <span class="price-now">${money(price)}</span>
+        ${p.discount_price ? `<span class="price-old">${money(p.price)}</span>` : ""}
+      </div>
+      <div class="product-actions">
+        <a href="product-detail.html?id=${p.id}" class="btn btn-outline-maroon btn-sm">View Details</a>
+        <button class="btn btn-primary btn-sm" ${outOfStock ? "disabled" : ""} onclick='addToCart(${JSON.stringify(p)})'>Add to Cart</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function updateFilterVisibility() {
+  document.getElementById("filterRashi").style.display = state.category === "rashi-ratna-bracelets" ? "inline-block" : "none";
+  document.getElementById("filterMukhi").style.display = state.category === "certified-rudraksha" ? "inline-block" : "none";
+}
+
+function populateSelectOnce(id, values) {
+  const el = document.getElementById(id);
+  if (el.dataset.populated) return;
+  values.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    el.appendChild(opt);
+  });
+  el.dataset.populated = "1";
+}
+
+async function loadProducts() {
+  const grid = document.getElementById("productGrid");
+  grid.innerHTML = '<div class="spinner"></div>';
+  try {
+    const queryParams = {
+      category: state.category || undefined,
+      search: state.search || undefined,
+      rashi: state.rashi || undefined,
+      mukhi: state.mukhi || undefined,
+      min_price: state.min_price,
+      max_price: state.max_price,
+      in_stock_only: state.in_stock_only || undefined,
+      sort: state.sort || undefined,
+      page: state.page,
+      page_size: 12,
+    };
+    const data = await api.getProducts(queryParams);
+    document.getElementById("resultsInfo").textContent = `${data.total} product${data.total === 1 ? "" : "s"} found`;
+    if (data.items.length === 0) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🔍</div><h3>No products found</h3><p>Try adjusting your filters or search terms.</p></div>`;
+    } else {
+      grid.innerHTML = data.items.map(productCard).join("");
+    }
+    renderPagination(data.page, data.pages);
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><h3>Something went wrong</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function renderPagination(page, pages) {
+  const el = document.getElementById("pagination");
+  if (pages <= 1) { el.innerHTML = ""; return; }
+  let html = "";
+  for (let i = 1; i <= pages; i++) {
+    html += `<button class="btn ${i === page ? "btn-primary" : "btn-outline-maroon"} btn-sm" onclick="goToPage(${i})">${i}</button>`;
+  }
+  el.innerHTML = html;
+}
+
+function goToPage(p) {
+  state.page = p;
+  loadProducts();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function initFilters() {
+  populateSelectOnce("filterRashi", RASHI_LIST);
+  populateSelectOnce("filterMukhi", MUKHI_LIST);
+
+  document.getElementById("filterCategory").value = state.category;
+  document.getElementById("pageHeading").textContent = CATEGORY_LABELS[state.category] || (state.search ? `Search results for "${state.search}"` : "All Products");
+  document.getElementById("crumbLabel").textContent = CATEGORY_LABELS[state.category] || "Shop";
+  document.title = `${CATEGORY_LABELS[state.category] || "Shop"} | Annapurna Bhakti Bhandar`;
+  updateFilterVisibility();
+
+  document.getElementById("filterCategory").addEventListener("change", (e) => {
+    state.category = e.target.value; state.page = 1;
+    document.getElementById("pageHeading").textContent = CATEGORY_LABELS[state.category] || "All Products";
+    document.getElementById("crumbLabel").textContent = CATEGORY_LABELS[state.category] || "Shop";
+    updateFilterVisibility();
+    loadProducts();
+  });
+  document.getElementById("filterRashi").addEventListener("change", (e) => { state.rashi = e.target.value; state.page = 1; loadProducts(); });
+  document.getElementById("filterMukhi").addEventListener("change", (e) => { state.mukhi = e.target.value; state.page = 1; loadProducts(); });
+  document.getElementById("filterPrice").addEventListener("change", (e) => {
+    const v = e.target.value;
+    if (!v) { state.min_price = undefined; state.max_price = undefined; }
+    else { const [min, max] = v.split("-"); state.min_price = Number(min); state.max_price = Number(max); }
+    state.page = 1; loadProducts();
+  });
+  document.getElementById("filterInStock").addEventListener("change", (e) => { state.in_stock_only = e.target.checked; state.page = 1; loadProducts(); });
+  document.getElementById("sortBy").addEventListener("change", (e) => { state.sort = e.target.value; state.page = 1; loadProducts(); });
+}
+
+initFilters();
+loadProducts();
+mountLayout(state.category === "girls-collection" ? "girls" : state.category === "certified-rudraksha" ? "rudraksha" : state.category === "rashi-ratna-bracelets" ? "rashi" : "");
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard | Annapurna Bhakti Bhandar</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div class="admin-shell">
+  <div id="sidebarMount"></div>
+  <div class="admin-main">
+    <h1>Dashboard</h1>
+    <p style="color:var(--brown-soft);">Welcome back! Here's how your shop is doing.</p>
+    <div class="stat-grid" id="statGrid">
+      <div class="stat-card"><div class="spinner"></div></div>
+    </div>
+    <div style="background:white;padding:20px;border-radius:14px;box-shadow:var(--shadow);">
+      <h3 style="margin-top:0;">Quick Links</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <a href="products.html" class="btn btn-primary btn-sm">Manage Products</a>
+        <a href="orders.html" class="btn btn-primary btn-sm">Manage Orders</a>
+        <a href="../index.html" class="btn btn-outline-maroon btn-sm">View Live Website</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../js/api.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/admin.js"></script>
+<script>
+if (requireAdminAuth()) {
+  document.getElementById("sidebarMount").innerHTML = renderAdminSidebar("dashboard");
+  loadDashboard();
+}
+
+async function loadDashboard() {
+  const grid = document.getElementById("statGrid");
+  try {
+    const stats = await api.adminDashboard();
+    grid.innerHTML = `
+      <div class="stat-card"><div class="num">${stats.total_products}</div><div class="label">Total Products</div></div>
+      <div class="stat-card"><div class="num">${stats.total_orders}</div><div class="label">Total Orders</div></div>
+      <div class="stat-card"><div class="num">${stats.pending_orders}</div><div class="label">Pending Orders</div></div>
+      <div class="stat-card"><div class="num">${stats.delivered_orders}</div><div class="label">Delivered Orders</div></div>
+      <div class="stat-card" style="grid-column:1/-1;"><div class="num">${money(stats.total_sales)}</div><div class="label">Total Sales</div></div>
+    `;
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    grid.innerHTML = `<p>Could not load dashboard: ${e.message}</p>`;
+  }
+}
+</script>
+</body>
+</html>

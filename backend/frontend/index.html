@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Annapurna Bhakti Bhandar | Women's Accessories, Rudraksha &amp; Rashi Ratna Bracelets</title>
+<meta name="description" content="Shop beautiful women's accessories, certified Rudraksha, and Rashi-based Ratna gemstone bracelets from Annapurna Bhakti Bhandar. Home delivery available across India.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="navbar-mount"></div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-motif"></div>
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="eyebrow">Annapurna Bhakti Bhandar</div>
+      <h1>Divine Elegance,<br>Tradition &amp; Beauty</h1>
+      <p>Discover beautiful women's accessories, certified Rudraksha and Rashi-based gemstone
+      bracelets — delivered to your doorstep.</p>
+      <div class="hero-buttons">
+        <a href="products.html?category=girls-collection" class="btn btn-gold">Shop Girls Collection</a>
+        <a href="products.html?category=certified-rudraksha" class="btn btn-outline">Explore Rudraksha</a>
+        <a href="products.html?category=rashi-ratna-bracelets" class="btn btn-outline">Explore Rashi Bracelets</a>
+      </div>
+    </div>
+    <div class="hero-image">
+      <img src="/static/images/hero-banner.svg" alt="Annapurna Bhakti Bhandar - divine elegance, tradition and beauty" onerror="this.src='/static/images/placeholder-generic.svg'">
+    </div>
+  </div>
+</section>
+
+<!-- 3 MAIN CATEGORIES -->
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="eyebrow">Explore Our Collections</div>
+      <h2>Shop by Category</h2>
+      <p>From everyday elegance to spiritual traditions — everything under one roof.</p>
+    </div>
+    <div class="category-grid" id="categoryGrid">
+      <div class="spinner"></div>
+    </div>
+  </div>
+</section>
+
+<!-- GIRLS COLLECTION PREVIEW -->
+<section class="section" style="background:var(--cream-soft)">
+  <div class="container">
+    <div class="section-header">
+      <div class="eyebrow">Girls Collection</div>
+      <h2>Trending Women's Accessories</h2>
+      <p>Earrings, bangles, necklaces &amp; more — crafted for everyday elegance.</p>
+    </div>
+    <div class="product-grid" id="girlsPreview"><div class="spinner"></div></div>
+    <div style="text-align:center;margin-top:30px;">
+      <a href="products.html?category=girls-collection" class="btn btn-primary">View All Girls Collection</a>
+    </div>
+  </div>
+</section>
+
+<!-- RUDRAKSHA PREVIEW -->
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="eyebrow">Certified Rudraksha</div>
+      <h2>Authentic Rudraksha Beads &amp; Malas</h2>
+      <p>Traditionally associated with spiritual wellbeing. Certification details available with every product.</p>
+    </div>
+    <div class="product-grid" id="rudrakshaPreview"><div class="spinner"></div></div>
+    <div style="text-align:center;margin-top:30px;">
+      <a href="products.html?category=certified-rudraksha" class="btn btn-primary">View All Rudraksha</a>
+    </div>
+  </div>
+</section>
+
+<!-- RASHI PREVIEW -->
+<section class="section" style="background:var(--cream-soft)">
+  <div class="container">
+    <div class="section-header">
+      <div class="eyebrow">Rashi Ratna Bracelets</div>
+      <h2>Astrology Bracelets for Every Rashi</h2>
+      <p>Traditionally associated with your Rashi — handcrafted gemstone bracelets for all 12 zodiac signs.</p>
+    </div>
+    <div class="product-grid" id="rashiPreview"><div class="spinner"></div></div>
+    <div style="text-align:center;margin-top:30px;">
+      <a href="products.html?category=rashi-ratna-bracelets" class="btn btn-primary">View All Rashi Bracelets</a>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST STRIP -->
+<section class="section" style="padding-top:0">
+  <div class="container" style="display:flex;flex-wrap:wrap;gap:24px;justify-content:space-around;text-align:center;">
+    <div><h3 style="margin:0">🚚 Home Delivery</h3><p style="color:var(--brown-soft)">Available across India</p></div>
+    <div><h3 style="margin:0">✅ Certified Rudraksha</h3><p style="color:var(--brown-soft)">Certificate details with every product</p></div>
+    <div><h3 style="margin:0">💰 Cash on Delivery</h3><p style="color:var(--brown-soft)">Pay when you receive your order</p></div>
+    <div><h3 style="margin:0">💬 WhatsApp Support</h3><p style="color:var(--brown-soft)">Need help? We're a message away</p></div>
+  </div>
+</section>
+
+<div id="footer-mount"></div>
+
+<script src="js/api.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/layout.js"></script>
+<script>
+async function loadCategories() {
+  const grid = document.getElementById("categoryGrid");
+  try {
+    const categories = await api.getCategories();
+    grid.innerHTML = categories.map(c => `
+      <a href="products.html?category=${c.slug}" class="category-card">
+        ${imgWithFallback(c.image_url, c.name)}
+        <div class="category-overlay">
+          <h3>${c.name}</h3>
+          <p>${c.description}</p>
+          <span class="link">Shop Now →</span>
+        </div>
+      </a>
+    `).join("");
+  } catch (e) {
+    grid.innerHTML = `<p>Could not load categories. Please try again later.</p>`;
+  }
+}
+
+function productCard(p) {
+  const price = p.discount_price ? p.discount_price : p.price;
+  const outOfStock = p.stock_quantity <= 0;
+  return `
+  <div class="product-card">
+    <div class="product-image-wrap">
+      ${p.discount_price ? `<span class="badge">SALE</span>` : ""}
+      ${outOfStock ? `<span class="badge badge-outofstock" style="left:auto;right:10px;">OUT OF STOCK</span>` : ""}
+      <a href="product-detail.html?id=${p.id}">${imgWithFallback(p.image_url, p.name)}</a>
+    </div>
+    <div class="product-body">
+      <h4><a href="product-detail.html?id=${p.id}">${p.name}</a></h4>
+      <div class="price-row">
+        <span class="price-now">${money(price)}</span>
+        ${p.discount_price ? `<span class="price-old">${money(p.price)}</span>` : ""}
+      </div>
+      <div class="product-actions">
+        <a href="product-detail.html?id=${p.id}" class="btn btn-outline-maroon btn-sm">View Details</a>
+        <button class="btn btn-primary btn-sm" ${outOfStock ? "disabled" : ""} onclick='addToCart(${JSON.stringify(p)})'>Add to Cart</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function loadPreview(elId, category) {
+  const el = document.getElementById(elId);
+  try {
+    const data = await api.getProducts({ category, page_size: 4 });
+    el.innerHTML = data.items.map(productCard).join("") || "<p>No products yet.</p>";
+  } catch (e) {
+    el.innerHTML = "<p>Could not load products.</p>";
+  }
+}
+
+loadCategories();
+loadPreview("girlsPreview", "girls-collection");
+loadPreview("rudrakshaPreview", "certified-rudraksha");
+loadPreview("rashiPreview", "rashi-ratna-bracelets");
+mountLayout("home");
+</script>
+</body>
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Products | Annapurna Bhakti Bhandar</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div class="admin-shell">
+  <div id="sidebarMount"></div>
+  <div class="admin-main">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <h1>Manage Products</h1>
+      <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+    </div>
+    <div id="productTableWrap"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<div id="modalMount"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/admin.js"></script>
+<script>
+let allCategories = [];
+
+if (requireAdminAuth()) {
+  document.getElementById("sidebarMount").innerHTML = renderAdminSidebar("products");
+  init();
+}
+
+async function init() {
+  try {
+    allCategories = await api.getCategories();
+  } catch (e) {}
+  loadProducts();
+}
+
+async function loadProducts() {
+  const wrap = document.getElementById("productTableWrap");
+  try {
+    const data = await api.adminListProducts({ page_size: 200 });
+    if (data.items.length === 0) {
+      wrap.innerHTML = "<p>No products yet. Click 'Add Product' to create one.</p>";
+      return;
+    }
+    wrap.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${data.items.map(p => `
+          <tr>
+            <td>${imgWithFallback(p.image_url, p.name, "").replace("<img ", '<img style="width:44px;height:44px;object-fit:cover;border-radius:8px;" ')}</td>
+            <td>${p.name}</td>
+            <td>${categoryName(p.category_id)}</td>
+            <td>${money(p.discount_price || p.price)}${p.discount_price ? ` <span class="price-old">${money(p.price)}</span>` : ""}</td>
+            <td>${p.stock_quantity}</td>
+            <td><span class="status-pill">${p.is_active ? "Active" : "Inactive"}</span></td>
+            <td>
+              <button class="btn btn-outline-maroon btn-sm" onclick='openProductModal(${JSON.stringify(p)})'>Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deactivateProduct(${p.id})">Deactivate</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    wrap.innerHTML = `<p>Could not load products: ${e.message}</p>`;
+  }
+}
+
+function categoryName(id) {
+  const c = allCategories.find(c => c.id === id);
+  return c ? c.name : "—";
+}
+
+function openProductModal(product = null) {
+  const isEdit = !!product;
+  const p = product || { name: "", slug: "", description: "", price: "", discount_price: "", stock_quantity: 0, image_url: "", category_id: allCategories[0]?.id || "", product_type: "", rashi: "", mukhi: "", gemstone: "", certification: "", size: "", material: "", color: "", is_active: true };
+
+  document.getElementById("modalMount").innerHTML = `
+  <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">${isEdit ? "Edit Product" : "Add New Product"}</h3>
+      <form id="productForm">
+        <div class="form-grid">
+          <div class="form-group full"><label>Name *</label><input type="text" id="f_name" value="${escapeHtml(p.name)}" required></div>
+          <div class="form-group full"><label>Slug (URL-friendly, unique) *</label><input type="text" id="f_slug" value="${escapeHtml(p.slug)}" required></div>
+          <div class="form-group full"><label>Description</label><textarea id="f_description" rows="3">${escapeHtml(p.description || "")}</textarea></div>
+          <div class="form-group"><label>Category *</label>
+            <select id="f_category_id">${allCategories.map(c => `<option value="${c.id}" ${c.id === p.category_id ? "selected" : ""}>${c.name}</option>`).join("")}</select>
+          </div>
+          <div class="form-group"><label>Product Type</label>
+            <select id="f_product_type">
+              <option value="girls" ${p.product_type === "girls" ? "selected" : ""}>Girls</option>
+              <option value="rudraksha" ${p.product_type === "rudraksha" ? "selected" : ""}>Rudraksha</option>
+              <option value="rashi" ${p.product_type === "rashi" ? "selected" : ""}>Rashi</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Price (₹) *</label><input type="number" id="f_price" value="${p.price}" required min="0"></div>
+          <div class="form-group"><label>Discount Price (₹)</label><input type="number" id="f_discount_price" value="${p.discount_price || ""}" min="0"></div>
+          <div class="form-group"><label>Stock Quantity *</label><input type="number" id="f_stock_quantity" value="${p.stock_quantity}" required min="0"></div>
+          <div class="form-group full"><label>Image URL</label><input type="text" id="f_image_url" value="${escapeHtml(p.image_url || "")}"></div>
+          <div class="form-group"><label>Rashi</label><input type="text" id="f_rashi" value="${escapeHtml(p.rashi || "")}"></div>
+          <div class="form-group"><label>Mukhi</label><input type="text" id="f_mukhi" value="${escapeHtml(p.mukhi || "")}"></div>
+          <div class="form-group"><label>Gemstone</label><input type="text" id="f_gemstone" value="${escapeHtml(p.gemstone || "")}"></div>
+          <div class="form-group"><label>Certification</label><input type="text" id="f_certification" value="${escapeHtml(p.certification || "")}"></div>
+          <div class="form-group"><label>Size</label><input type="text" id="f_size" value="${escapeHtml(p.size || "")}"></div>
+          <div class="form-group"><label>Material</label><input type="text" id="f_material" value="${escapeHtml(p.material || "")}"></div>
+          <div class="form-group"><label>Color</label><input type="text" id="f_color" value="${escapeHtml(p.color || "")}"></div>
+        </div>
+        <div class="error-text" id="modalError" style="display:none;margin-top:10px;"></div>
+        <div style="display:flex;gap:12px;margin-top:20px;">
+          <button type="submit" class="btn btn-primary">${isEdit ? "Save Changes" : "Create Product"}</button>
+          <button type="button" class="btn btn-outline-maroon" onclick="closeModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>`;
+
+  document.getElementById("productForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveProduct(isEdit ? p.id : null);
+  });
+}
+
+function escapeHtml(s) {
+  return (s || "").toString().replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function closeModal() {
+  document.getElementById("modalMount").innerHTML = "";
+}
+
+async function saveProduct(existingId) {
+  const errEl = document.getElementById("modalError");
+  errEl.style.display = "none";
+
+  const payload = {
+    name: document.getElementById("f_name").value.trim(),
+    slug: document.getElementById("f_slug").value.trim(),
+    description: document.getElementById("f_description").value.trim(),
+    category_id: parseInt(document.getElementById("f_category_id").value),
+    product_type: document.getElementById("f_product_type").value,
+    price: parseFloat(document.getElementById("f_price").value),
+    discount_price: document.getElementById("f_discount_price").value ? parseFloat(document.getElementById("f_discount_price").value) : null,
+    stock_quantity: parseInt(document.getElementById("f_stock_quantity").value),
+    image_url: document.getElementById("f_image_url").value.trim(),
+    rashi: document.getElementById("f_rashi").value.trim() || null,
+    mukhi: document.getElementById("f_mukhi").value.trim() || null,
+    gemstone: document.getElementById("f_gemstone").value.trim() || null,
+    certification: document.getElementById("f_certification").value.trim() || null,
+    size: document.getElementById("f_size").value.trim() || null,
+    material: document.getElementById("f_material").value.trim() || null,
+    color: document.getElementById("f_color").value.trim() || null,
+    is_active: true,
+  };
+
+  try {
+    if (existingId) {
+      await api.adminUpdateProduct(existingId, payload);
+      showToast("Product updated successfully");
+    } else {
+      await api.adminCreateProduct(payload);
+      showToast("Product created successfully");
+    }
+    closeModal();
+    loadProducts();
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    errEl.textContent = e.message;
+    errEl.style.display = "block";
+  }
+}
+
+async function deactivateProduct(id) {
+  if (!confirm("Deactivate this product? It will no longer be shown on the website.")) return;
+  try {
+    await api.adminDeleteProduct(id);
+    showToast("Product deactivated");
+    loadProducts();
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    showToast(e.message, "error");
+  }
+}
+</script>
+</body>
+</html>

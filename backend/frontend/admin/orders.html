@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage Orders | Annapurna Bhakti Bhandar</title>
+<link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div class="admin-shell">
+  <div id="sidebarMount"></div>
+  <div class="admin-main">
+    <h1>Manage Orders</h1>
+    <div class="toolbar" style="margin-top:16px;">
+      <div class="filter-group">
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Confirmed">Confirmed</option>
+          <option value="Packed">Packed</option>
+          <option value="Shipped">Shipped</option>
+          <option value="Out for Delivery">Out for Delivery</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div id="orderTableWrap"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<div id="modalMount"></div>
+
+<script src="../js/api.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/admin.js"></script>
+<script>
+const STATUS_OPTIONS = ["Pending", "Confirmed", "Packed", "Shipped", "Out for Delivery", "Delivered", "Cancelled"];
+
+if (requireAdminAuth()) {
+  document.getElementById("sidebarMount").innerHTML = renderAdminSidebar("orders");
+  loadOrders();
+  document.getElementById("statusFilter").addEventListener("change", loadOrders);
+}
+
+async function loadOrders() {
+  const wrap = document.getElementById("orderTableWrap");
+  const statusFilter = document.getElementById("statusFilter").value;
+  try {
+    const orders = await api.adminListOrders(statusFilter);
+    if (orders.length === 0) {
+      wrap.innerHTML = "<p>No orders found.</p>";
+      return;
+    }
+    wrap.innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Order ID</th><th>Customer</th><th>Phone</th><th>City</th><th>Total</th><th>Status</th><th>Placed On</th><th>Actions</th></tr></thead>
+      <tbody>
+        ${orders.map(o => `
+          <tr>
+            <td>${o.order_id}</td>
+            <td>${o.customer_name}</td>
+            <td>${o.phone}</td>
+            <td>${o.city}</td>
+            <td>${money(o.total_amount)}</td>
+            <td><span class="status-pill">${o.order_status}</span></td>
+            <td>${new Date(o.created_at).toLocaleDateString("en-IN")}</td>
+            <td><button class="btn btn-outline-maroon btn-sm" onclick='openOrderModal(${JSON.stringify(o)})'>View / Update</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    wrap.innerHTML = `<p>Could not load orders: ${e.message}</p>`;
+  }
+}
+
+function openOrderModal(order) {
+  document.getElementById("modalMount").innerHTML = `
+  <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal-box">
+      <h3 style="margin-top:0;">Order ${order.order_id}</h3>
+      <table class="spec-table">
+        <tr><td>Customer</td><td>${order.customer_name}</td></tr>
+        <tr><td>Phone</td><td>${order.phone}</td></tr>
+        <tr><td>Email</td><td>${order.email || "—"}</td></tr>
+        <tr><td>Address</td><td>${order.address}, ${order.city}, ${order.state} - ${order.pincode}</td></tr>
+        <tr><td>Landmark</td><td>${order.landmark || "—"}</td></tr>
+        <tr><td>Instructions</td><td>${order.delivery_instructions || "—"}</td></tr>
+        <tr><td>Payment Method</td><td>${order.payment_method}</td></tr>
+        <tr><td>Total</td><td>${money(order.total_amount)}</td></tr>
+      </table>
+      <h4>Items</h4>
+      ${order.items.map(i => `<div class="summary-row"><span>${i.product_name_snapshot} × ${i.quantity}</span><span>${money(i.subtotal)}</span></div>`).join("")}
+
+      <div style="margin-top:18px;">
+        <label style="font-weight:600;font-size:0.85rem;display:block;margin-bottom:8px;">Update Order Status</label>
+        <select id="newStatus">
+          ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === order.order_status ? "selected" : ""}>${s}</option>`).join("")}
+        </select>
+        <button class="btn btn-primary btn-sm" style="margin-left:10px;" onclick="updateStatus('${order.order_id}')">Update</button>
+      </div>
+      <div class="error-text" id="modalError" style="display:none;margin-top:10px;"></div>
+      <button class="btn btn-outline-maroon" style="margin-top:18px;" onclick="closeModal()">Close</button>
+    </div>
+  </div>`;
+}
+
+function closeModal() {
+  document.getElementById("modalMount").innerHTML = "";
+}
+
+async function updateStatus(orderId) {
+  const newStatus = document.getElementById("newStatus").value;
+  try {
+    await api.adminUpdateOrderStatus(orderId, newStatus);
+    showToast("Order status updated");
+    closeModal();
+    loadOrders();
+  } catch (e) {
+    if (await handleAdminApiError(e)) return;
+    document.getElementById("modalError").textContent = e.message;
+    document.getElementById("modalError").style.display = "block";
+  }
+}
+</script>
+</body>
+</html>

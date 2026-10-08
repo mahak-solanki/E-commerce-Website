@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Cart | Annapurna Bhakti Bhandar</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="navbar-mount"></div>
+
+<div class="page-header">
+  <div class="container">
+    <div class="breadcrumb"><a href="index.html">Home</a> / Cart</div>
+    <h1>Your Shopping Cart</h1>
+  </div>
+</div>
+
+<div class="container" style="padding:30px 0 60px;">
+  <div id="cartContent"></div>
+</div>
+
+<div id="footer-mount"></div>
+
+<script src="js/api.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/layout.js"></script>
+<script>
+function renderCart() {
+  const cart = getCart();
+  const el = document.getElementById("cartContent");
+
+  if (cart.length === 0) {
+    el.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🛒</div>
+      <h3>Your cart is empty</h3>
+      <p>Looks like you haven't added anything yet.</p>
+      <a href="products.html" class="btn btn-primary">Start Shopping</a>
+    </div>`;
+    return;
+  }
+
+  const subtotal = cartSubtotal();
+
+  const itemsHtml = cart.map(i => `
+    <div class="cart-item">
+      ${imgWithFallback(i.image, i.name, "")}
+      <div class="cart-item-info">
+        <h4>${i.name}</h4>
+        <div style="color:var(--brown-soft);font-size:0.85rem;">${money(i.price)} each</div>
+        <div class="qty-selector" style="margin-top:8px;">
+          <button onclick="changeCartQty(${i.product_id}, -1)">-</button>
+          <input type="number" value="${i.quantity}" min="1" max="${i.stock}" onchange="setCartQuantity(${i.product_id}, parseInt(this.value)||1); renderCart();">
+          <button onclick="changeCartQty(${i.product_id}, 1)">+</button>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-weight:700;color:var(--maroon);margin-bottom:10px;">${money(i.price * i.quantity)}</div>
+        <button class="btn btn-outline-maroon btn-sm" onclick="removeFromCart(${i.product_id}); renderCart();">Remove</button>
+      </div>
+    </div>
+  `).join("");
+
+  el.innerHTML = `
+  <div class="cart-layout">
+    <div>
+      ${itemsHtml}
+      <button class="btn btn-outline-maroon btn-sm" onclick="clearCart(); renderCart();">Clear Cart</button>
+    </div>
+    <div class="summary-card">
+      <h3 style="margin-top:0;">Order Summary</h3>
+      <div class="summary-row"><span>Subtotal</span><span>${money(subtotal)}</span></div>
+      <div class="summary-row"><span>Delivery</span><span id="deliveryLine">Calculated at checkout</span></div>
+      <div class="summary-row total"><span>Total</span><span>${money(subtotal)}</span></div>
+      <a href="checkout.html" class="btn btn-primary btn-block" style="margin-top:16px;">Proceed to Checkout</a>
+      <a href="products.html" class="btn btn-outline-maroon btn-block" style="margin-top:10px;">Continue Shopping</a>
+    </div>
+  </div>`;
+}
+
+function changeCartQty(productId, delta) {
+  const cart = getCart();
+  const item = cart.find(i => i.product_id === productId);
+  if (!item) return;
+  setCartQuantity(productId, item.quantity + delta);
+  renderCart();
+}
+
+renderCart();
+mountLayout("");
+</script>
+</body>
+</html>
